@@ -1,6 +1,6 @@
 env:
   global:
-    - VERSION=1.${TRAVIS_BUILD_NUMBER}
+    - VERSION=test-build.${TRAVIS_BUILD_NUMBER}
     - DOCKER_HUB_USER=monsonnl
   matrix:
     - ARCH=x86_64
