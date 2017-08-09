@@ -1,7 +1,7 @@
 env:
   global:
     - VERSION=1.${TRAVIS_BUILD_NUMBER}
-    - DOCKER_HUB_USER=vfarcic
+    - DOCKER_HUB_USER=monsonnl
   matrix:
     - ARCH=x86_64
       ARCH_GO_IMG=golang:1.9-stretch
@@ -25,11 +25,11 @@ before_install:
   - sudo apt-get update
   - sudo apt-get -y install docker-ce
 
-  # extract proxy-key
-  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
-      openssl aes-256-cbc -K $encrypted_9acc217090f3_key -iv $encrypted_9acc217090f3_iv -in proxy-key.enc -out proxy-key -d &&
-      chmod 600 proxy-key;
-    fi
+#  # extract proxy-key
+#  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+#      openssl aes-256-cbc -K $encrypted_9acc217090f3_key -iv $encrypted_9acc217090f3_iv -in proxy-key.enc -out proxy-key -d &&
+#      chmod 600 proxy-key;
+#    fi
 
 script:
   - docker build --build-arg ARCH_SRC_DIR=${ARCH} --build-arg ARCH_GO_IMG=${ARCH_GO_IMG} --build-arg ARCH_ALPINE_IMG=${ARCH_ALPINE_IMG} -t ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta-${ARCH} .
@@ -58,15 +58,15 @@ script:
       docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:latest;
     fi
 
-  # create docs
-  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
-      docker-compose run --rm docs &&
-      docker build -t ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs -f Dockerfile.docs . &&
-      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
-      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
-      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs;
-    fi
+#  # create docs
+#  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+#      docker-compose run --rm docs &&
+#      docker build -t ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs -f Dockerfile.docs . &&
+#      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
+#      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
+#      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs;
+#    fi
 
 branches:
   only:
-    - master
+    - monsonnl-travis
