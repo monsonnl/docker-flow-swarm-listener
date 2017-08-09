@@ -2,6 +2,16 @@ env:
   global:
     - VERSION=1.${TRAVIS_BUILD_NUMBER}
     - DOCKER_HUB_USER=vfarcic
+  matrix:
+    - ARCH=x86_64
+      ARCH_GO_IMG=golang:1.9-stretch
+      ARCH_ALPINE_IMG=alpine:3.5
+    - ARCH=arm32v7
+      ARCH_GO_IMG=arm32v7/golang:1.9-stretch
+      ARCH_ALPINE_IMG=armhf/alpine:3.5
+    - ARCH=arm64v8
+      ARCH_GO_IMG=arm64v8/golang:1.9-stretch
+      ARCH_ALPINE_IMG=arm64v8/alpine:3.5
 
 sudo: required
 
@@ -9,22 +19,53 @@ services:
   - docker
 
 before_install:
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then openssl aes-256-cbc -K $encrypted_9acc217090f3_key -iv $encrypted_9acc217090f3_iv -in proxy-key.enc -out proxy-key -d; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then chmod 600 proxy-key; fi'
+  # update to the latest docker for multi-stage
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  - sudo apt-get update
+  - sudo apt-get -y install docker-ce
+
+  # extract proxy-key
+  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+      openssl aes-256-cbc -K $encrypted_9acc217090f3_key -iv $encrypted_9acc217090f3_iv -in proxy-key.enc -out proxy-key -d &&
+      chmod 600 proxy-key;
+    fi
 
 script:
-  - docker build -t vfarcic/docker-flow-swarm-listener .
-  - docker tag vfarcic/docker-flow-swarm-listener vfarcic/docker-flow-swarm-listener:beta
+  - docker build --build-arg ARCH_SRC_DIR=${ARCH} --build-arg ARCH_GO_IMG=${ARCH_GO_IMG} --build-arg ARCH_ALPINE_IMG=${ARCH_ALPINE_IMG} -t ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta-${ARCH} .
   - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-  - docker push vfarcic/docker-flow-swarm-listener:beta
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker tag vfarcic/docker-flow-swarm-listener vfarcic/docker-flow-swarm-listener:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-swarm-listener:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-swarm-listener; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker-compose run --rm docs; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker build -t vfarcic/docker-flow-swarm-listener-docs -f Dockerfile.docs .; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker tag vfarcic/docker-flow-swarm-listener-docs vfarcic/docker-flow-swarm-listener-docs:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-swarm-listener-docs:${VERSION}; fi'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker push vfarcic/docker-flow-swarm-listener-docs; fi'
+  - docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta-${ARCH}
+
+  # if x86_64 then create the generic tag
+  - if [[ "${ARCH}" = "x86_64" ]]; then
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta-x86_64 ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta;
+    fi
+
+  # create the version and latest tags
+  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener:beta-${ARCH} ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION}-${ARCH} &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION}-${ARCH} &&
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION}-${ARCH} ${DOCKER_HUB_USER}/docker-flow-swarm-listener:latest-${ARCH} &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:latest-${ARCH};
+    fi
+
+  # again if x86_64 create generic tagging
+  - if [[ "$TRAVIS_PULL_REQUEST" = "false" && "${ARCH}" = "x86_64" ]]; then
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION}-${ARCH} ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION} &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION} &&
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener:${VERSION} ${DOCKER_HUB_USER}/docker-flow-swarm-listener:latest &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener:latest;
+    fi
+
+  # create docs
+  - if [[ "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+      docker-compose run --rm docs &&
+      docker build -t ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs -f Dockerfile.docs . &&
+      docker tag ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs:${VERSION} &&
+      docker push ${DOCKER_HUB_USER}/docker-flow-swarm-listener-docs;
+    fi
 
 branches:
   only:
